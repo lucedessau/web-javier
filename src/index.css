@@ -1,0 +1,82 @@
+@import '@fontsource-variable/fraunces/opsz.css';
+@import '@fontsource-variable/fraunces/opsz-italic.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import 'tailwindcss';
+
+@theme {
+  /* Paleta tomada del logo de QuadroFilms */
+  --color-ink: #07080a;
+  --color-ink-2: #0e1014;
+  --color-cream: #eeebe4;
+  --color-mute: #8c94a6;
+  --color-silver: #c9cdd4;
+  --color-accent: #2880fb; /* azul exacto del destello del diafragma */
+  --color-accent-strong: #1f6fe5; /* mismo azul, apto para texto blanco (AA) */
+  --color-accent-hi: #7db8ff;
+
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, serif;
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background-color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink font-sans text-cream antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-hi);
+    outline-offset: 3px;
+  }
+}
+
+/* Grano de película: fijo y sin eventos, para no repintar al scrollear */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.045;
+}
+
+/* La luz que entra por el lente */
+.lens-glow {
+  background: radial-gradient(
+    closest-side,
+    rgb(40 128 251 / 0.36),
+    rgb(40 128 251 / 0.1) 58%,
+    transparent 100%
+  );
+  animation: breathe 7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-glow {
+    animation: none;
+  }
+}
