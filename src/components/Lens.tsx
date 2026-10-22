@@ -1,14 +1,14 @@
 import { animate, motion, useInView, useMotionValue, useReducedMotion, useTransform, type MotionValue } from 'motion/react'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { ISO, ISO_BLADES, ISO_TAIL } from './lensPieces'
+import { ISO, ISO_BLADES, ISO_BOX, ISO_IRIS, ISO_TAIL, ISO_UNIT } from './lensPieces'
 
 /*
  * Anillo de foco de un lente de cine, interactivo.
- * - Al entrar en pantalla, el anillo va de infinito a 3 m y la Q se enfoca.
- * - Se puede girar: con el mouse, girando alrededor del centro; en touch,
- *   deslizando de costado (el scroll vertical sigue libre).
- * - El desenfoque de la Q depende de cuánto se aleja el anillo de 3 m.
- * - Al soltarlo sigue por inercia y después hace "autofoco" a 3 m.
+ * - Arranca quieto: el isotipo armado y en foco, con el anillo en 3 m.
+ * - Se gira siguiendo el ángulo del puntero alrededor del centro (mouse o dedo), en todo el aro.
+ * - Al alejarse de 3 m pasa en dos tiempos: primero el isotipo se expande y se desarma
+ *   como un diafragma que se abre; recién después, si se sigue girando, se desenfoca.
+ * - Al soltarlo sigue por inercia y después hace "autofoco" a 3 m (se enfoca y se vuelve a armar).
  */
 const C = 200
 const RING = 184
@@ -25,57 +25,101 @@ const MARKS = [
 ]
 const TICKS = Array.from({ length: 120 }, (_, i) => i * 3)
 const FOCUSED = 12 // la marca de 3 m queda bajo el índice
-const START = 64 // arranca en infinito: el sujeto está fuera de foco
 const pull = [0.77, 0, 0.175, 1] as const
 
 /** Grados que separan al anillo de la posición en foco más cercana. */
 const offFocus = (r: number) => Math.abs((((r - FOCUSED) % 360) + 540) % 360 - 180)
 const nearestFocus = (r: number) => FOCUSED + Math.round((r - FOCUSED) / 360) * 360
 
-/** Cuánto se "desarma" el isotipo (0 = armado, 1 = abierto del todo). */
-const openness = (r: number) => {
-  const t = Math.min(1, Math.max(0, (offFocus(r) - 3) / 50))
+/** 0 → 1 con arranque y llegada suaves, entre dos ángulos de desenfoque. */
+const phase = (r: number, from: number, to: number) => {
+  const t = Math.min(1, Math.max(0, (offFocus(r) - from) / (to - from)))
   return t * t * (3 - 2 * t)
 }
 
+// Primer tramo del giro: se desarma. Segundo tramo: se desenfoca.
+const OPEN_FROM = 3
+const OPEN_TO = 45
+const BLUR_FROM = 50
+const BLUR_TO = 120
+const MAX_BLUR = 4 // px
+
+/** Cuánto se "desarma" el isotipo (0 = armado, 1 = abierto del todo). */
+const openness = (r: number) => phase(r, OPEN_FROM, OPEN_TO)
+
 // Recorridos máximos de cada pieza, en % del lienzo del isotipo
-const BLADE_TRAVEL = 8
+const BLADE_TRAVEL = 8 * ISO_UNIT
 const BLADE_TWIST = 14 // grados: el iris gira levemente al abrirse
 const RING_GROWTH = 0.07
-const TAIL_TRAVEL = 6
+const TAIL_TRAVEL = 6 * ISO_UNIT
+const ISO_GROWTH = 0.08 // el isotipo entero se agranda mientras se abre
 const ASPECT = ISO.width / ISO.height // traduce % de ancho a % de alto
 const ORIGIN = `${ISO.originX}% ${ISO.originY}%`
-// tamaño del disco interior (donde aparece la luz), en % del lienzo
-const IRIS_W = 76.8
-const IRIS_H = IRIS_W * ASPECT
 
-function Blade({ src, dx, dy, open }: { src: string; dx: number; dy: number; open: MotionValue<number> }) {
-  const transform = useTransform(
-    open,
-    (k) => `rotate(${(k * BLADE_TWIST).toFixed(2)}deg) translate(${(dx * k * BLADE_TRAVEL).toFixed(3)}%, ${(dy * k * BLADE_TRAVEL * ASPECT).toFixed(3)}%)`,
-  )
-  return <motion.img src={src} alt="" draggable={false} className="absolute inset-0 size-full" style={{ transform, transformOrigin: ORIGIN }} />
+/**
+ * Zona de agarre en pantallas táctiles: solo el aro (anillo entre el 31% y el 50% del radio).
+ * El centro queda libre para que el dedo pueda scrollear la página.
+ */
+const ringHitArea = (() => {
+  const pts = (r: number, reverse: boolean) =>
+    Array.from({ length: 49 }, (_, i) => {
+      const a = ((reverse ? 48 - i : i) / 48) * Math.PI * 2
+      return `${(50 + r * Math.cos(a)).toFixed(2)}% ${(50 + r * Math.sin(a)).toFixed(2)}%`
+    })
+  return `polygon(evenodd, ${[...pts(50, false), ...pts(31, true)].join(', ')})`
+})()
+
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(() => window.matchMedia('(pointer: coarse)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)')
+    const onChange = () => setCoarse(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return coarse
 }
 
-type Drag = { id: number; mode: 'angle' | 'x'; last: number; lastT: number; vel: number }
+function Blade({ src, dx, dy, open }: { src: string; dx: number; dy: number; open: MotionValue<number> }) {
+  const transform = useTransform(open, (k) =>
+    k < 0.001
+      ? 'none'
+      : `rotate(${(k * BLADE_TWIST).toFixed(2)}deg) translate(${(dx * k * BLADE_TRAVEL).toFixed(3)}%, ${(dy * k * BLADE_TRAVEL * ASPECT).toFixed(3)}%)`,
+  )
+  return (
+    <motion.img
+      src={src}
+      alt=""
+      draggable={false}
+      className="absolute inset-0 size-full"
+      style={{ transform, transformOrigin: ORIGIN }}
+    />
+  )
+}
+
+type Drag = { id: number; last: number; lastT: number; vel: number }
 
 export default function Lens() {
   const reduce = useReducedMotion()
+  const coarse = useCoarsePointer()
   const root = useRef<HTMLDivElement>(null)
   const inView = useInView(root, { once: true, amount: 0.4 })
   const [touched, setTouched] = useState(false)
 
-  const rot = useMotionValue(reduce ? FOCUSED : START)
+  const rot = useMotionValue(FOCUSED)
   const ring = useTransform(rot, (r) => `rotate(${r}deg)`)
-  // desenfoque suave: el protagonista ahora es el diafragma que se abre
-  const qFilter = useTransform(rot, (r) => `blur(${Math.min(3, Math.max(0, offFocus(r) - 2) / 14).toFixed(2)}px)`)
-  // "focus breathing": la imagen cambia apenas de tamaño al mover el foco
-  const qScale = useTransform(rot, (r) => `scale(${(1 + Math.min(offFocus(r), 45) * 0.0012).toFixed(4)})`)
   const open = useTransform(rot, openness)
-  const ringScale = useTransform(open, (k) => `scale(${(1 + k * RING_GROWTH).toFixed(4)})`)
-  const tailShift = useTransform(
-    open,
-    (k) => `translate(${(ISO_TAIL.dx * k * TAIL_TRAVEL).toFixed(3)}%, ${(ISO_TAIL.dy * k * TAIL_TRAVEL * ASPECT).toFixed(3)}%)`,
+  // En reposo no se aplica ni filtro ni escala: evita capas extra (y artefactos en Safari)
+  const qFilter = useTransform(rot, (r) => {
+    const b = phase(r, BLUR_FROM, BLUR_TO) * MAX_BLUR
+    return b < 0.05 ? 'none' : `blur(${b.toFixed(2)}px)`
+  })
+  const qScale = useTransform(open, (k) => (k < 0.001 ? 'none' : `scale(${(1 + k * ISO_GROWTH).toFixed(4)})`))
+  const ringScale = useTransform(open, (k) => (k < 0.001 ? 'none' : `scale(${(1 + k * RING_GROWTH).toFixed(4)})`))
+  const tailShift = useTransform(open, (k) =>
+    k < 0.001
+      ? 'none'
+      : `translate(${(ISO_TAIL.dx * k * TAIL_TRAVEL).toFixed(3)}%, ${(ISO_TAIL.dy * k * TAIL_TRAVEL * ASPECT).toFixed(3)}%)`,
   )
 
   const drag = useRef<Drag | null>(null)
@@ -113,14 +157,6 @@ export default function Lens() {
     stopAnim.current = () => cancelAnimationFrame(raf)
   }
 
-  // entrada: tirar foco de infinito a 3 m
-  useEffect(() => {
-    if (!inView || reduce) return
-    const a = animate(rot, FOCUSED, { duration: 1.9, ease: pull, delay: 0.3 })
-    stopAnim.current = () => a.stop()
-    return () => a.stop()
-  }, [inView, reduce, rot])
-
   useEffect(() => () => window.clearTimeout(refocusTimer.current), [])
 
   const angleOf = (e: PointerEvent) => {
@@ -131,8 +167,7 @@ export default function Lens() {
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (drag.current || (e.pointerType === 'mouse' && e.button !== 0)) return
     halt()
-    const mode = e.pointerType === 'mouse' ? 'angle' : 'x'
-    drag.current = { id: e.pointerId, mode, last: mode === 'angle' ? angleOf(e) : e.clientX, lastT: performance.now(), vel: 0 }
+    drag.current = { id: e.pointerId, last: angleOf(e), lastT: performance.now(), vel: 0 }
     e.currentTarget.setPointerCapture(e.pointerId)
     setTouched(true)
   }
@@ -140,15 +175,9 @@ export default function Lens() {
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current
     if (!d || e.pointerId !== d.id) return
-    let delta: number
-    if (d.mode === 'angle') {
-      const a = angleOf(e)
-      delta = ((a - d.last + 540) % 360) - 180
-      d.last = a
-    } else {
-      delta = (e.clientX - d.last) * 0.45
-      d.last = e.clientX
-    }
+    const a = angleOf(e)
+    const delta = ((a - d.last + 540) % 360) - 180
+    d.last = a
     rot.set(rot.get() + delta)
     const now = performance.now()
     d.vel = 0.75 * d.vel + 0.25 * ((delta / Math.max(1, now - d.lastT)) * 1000)
@@ -169,21 +198,13 @@ export default function Lens() {
     if (e.pointerType !== 'mouse' || touched || reduce || drag.current || !inView) return
     halt()
     const r = nearestFocus(rot.get())
-    const a = animate(rot, [rot.get(), r + 7, r], { duration: 1, ease: [0.23, 1, 0.32, 1] })
+    const a = animate(rot, [rot.get(), r + 16, r], { duration: 1.2, ease: [0.23, 1, 0.32, 1] })
     stopAnim.current = () => a.stop()
   }
 
   return (
     <div aria-hidden className="select-none">
-      <div
-        ref={root}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        onPointerEnter={onPointerEnter}
-        className="relative mx-auto aspect-square w-full max-w-[34rem] cursor-grab touch-pan-y active:cursor-grabbing"
-      >
+      <div ref={root} className="relative mx-auto aspect-square w-full max-w-[34rem]">
         <div className="lens-glow absolute inset-[6%] rounded-full" />
 
         {/* barril fijo + índice de foco */}
@@ -227,52 +248,68 @@ export default function Lens() {
           </svg>
         </motion.div>
 
-        {/* isotipo en piezas: base, luz del iris, aletas, aro y colita */}
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+        {/* isotipo en piezas: base, luz del iris, aletas, aro y colita (centrado en el centro del aro) */}
+        <motion.div
+          className="pointer-events-none absolute"
+          style={{
+            left: `${ISO_BOX.left}%`,
+            top: `${ISO_BOX.top}%`,
+            width: `${ISO_BOX.width}%`,
+            height: `${ISO_BOX.height}%`,
+            filter: qFilter,
+            transform: qScale,
+            transformOrigin: ORIGIN,
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: inView ? 1 : 0 }}
+          transition={{ duration: 0.9, ease: [0.23, 1, 0.32, 1], delay: 0.2 }}
+        >
+          <img src="/brand/iso/base.webp" alt="" draggable={false} className="absolute inset-0 size-full" />
           <motion.div
-            className="relative mt-[6.6%] w-[46%]"
-            style={{ aspectRatio: `${ISO.width} / ${ISO.height}`, filter: qFilter, transform: qScale }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: inView ? 1 : 0 }}
-            transition={{ duration: 0.9, ease: [0.23, 1, 0.32, 1], delay: 0.2 }}
-          >
-            <img src="/brand/iso/base.webp" alt="" draggable={false} className="absolute inset-0 size-full" />
-            <motion.div
-              className="absolute rounded-full bg-[radial-gradient(closest-side,rgb(125_184_255/0.9),rgb(40_128_251/0.45)_45%,transparent)]"
-              style={{
-                left: `${ISO.originX - IRIS_W / 2}%`,
-                top: `${ISO.originY - IRIS_H / 2}%`,
-                width: `${IRIS_W}%`,
-                height: `${IRIS_H}%`,
-                opacity: open,
-              }}
-            />
-            {ISO_BLADES.map((b) => (
-              <Blade key={b.src} src={b.src} dx={b.dx} dy={b.dy} open={open} />
-            ))}
-            <motion.img
-              src="/brand/iso/ring.webp"
-              alt=""
-              draggable={false}
-              className="absolute inset-0 size-full"
-              style={{ transform: ringScale, transformOrigin: ORIGIN }}
-            />
-            <motion.img
-              src={ISO_TAIL.src}
-              alt=""
-              draggable={false}
-              className="absolute inset-0 size-full"
-              style={{ transform: tailShift }}
-            />
-          </motion.div>
-        </div>
+            className="absolute rounded-full bg-[radial-gradient(closest-side,rgb(125_184_255/0.9),rgb(40_128_251/0.45)_45%,transparent)]"
+            style={{
+              left: `${ISO.originX - ISO_IRIS.width / 2}%`,
+              top: `${ISO.originY - ISO_IRIS.height / 2}%`,
+              width: `${ISO_IRIS.width}%`,
+              height: `${ISO_IRIS.height}%`,
+              opacity: open,
+            }}
+          />
+          {ISO_BLADES.map((b) => (
+            <Blade key={b.src} src={b.src} dx={b.dx} dy={b.dy} open={open} />
+          ))}
+          <motion.img
+            src="/brand/iso/ring.webp"
+            alt=""
+            draggable={false}
+            className="absolute inset-0 size-full"
+            style={{ transform: ringScale, transformOrigin: ORIGIN }}
+          />
+          <motion.img
+            src={ISO_TAIL.src}
+            alt=""
+            draggable={false}
+            className="absolute inset-0 size-full"
+            style={{ transform: tailShift }}
+          />
+        </motion.div>
+
+        {/* zona de agarre: todo el lente con mouse; solo el aro en pantallas táctiles */}
+        <div
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+          onPointerEnter={onPointerEnter}
+          className="absolute inset-0 cursor-grab touch-none rounded-full active:cursor-grabbing"
+          style={coarse ? { clipPath: ringHitArea } : undefined}
+        />
       </div>
 
       <p
         className={`mt-5 text-center text-xs text-mute transition-opacity duration-700 ${touched ? 'opacity-0' : 'opacity-100'}`}
       >
-        <span className="hidden pointer-fine:inline">Girá el anillo para hacer foco</span>
-        <span className="pointer-fine:hidden">Deslizá el anillo para hacer foco</span>
+        {coarse ? 'Girá el aro con el dedo' : 'Girá el anillo del lente'}
       </p>
     </div>
   )

@@ -1,32 +1,24 @@
-# React + TypeScript + Vite
+# QuadroFilms · Javier Vrana
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Web one-page de QuadroFilms, productora audiovisual de Mendoza. Hecha por [GenLab](https://genlab.com.ar).
 
-Currently, two official plugins are available:
+## Desarrollo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev     # http://localhost:5173
+npm run build   # genera dist/
+npm run lint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Publicación
+
+Cada merge a `main` publica la web en Cloudflare (`npm run build`, sirve `dist/` según `wrangler.jsonc`).
+Los cambios entran por pull request desde una rama.
+
+## Dónde está cada cosa
+
+- `src/config/site.ts`: WhatsApp (número y mensaje predefinido), email y redes.
+- `src/data/works.ts`: fotos de la galería con sus títulos. Las imágenes están en `public/works/` (800 y 1600 px).
+- `src/components/Lens.tsx`: el lente interactivo del hero. Las piezas del isotipo están en `public/brand/iso/` y sus posiciones en `lensPieces.ts`.
+- `src/components/gallery/`: esfera 3D (desktop), vista ampliada y modo de galería según el dispositivo.

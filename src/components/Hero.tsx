@@ -24,7 +24,7 @@ export default function Hero() {
   }
 
   return (
-    <section className="relative isolate overflow-hidden px-5 pb-16 pt-28 sm:px-8 md:flex md:min-h-[100dvh] md:items-center md:pb-20 md:pt-32">
+    <section id="inicio" className="relative isolate overflow-hidden px-5 pb-16 pt-28 sm:px-8 md:flex md:min-h-[100dvh] md:items-center md:pb-20 md:pt-32">
       {/* resplandor ambiente detrás del lente */}
       <div
         aria-hidden

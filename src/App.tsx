@@ -1,7 +1,13 @@
 import { MotionConfig } from 'motion/react'
+import About from './components/About'
+import Closing from './components/Closing'
+import FloatingWhatsApp from './components/FloatingWhatsApp'
+import Footer from './components/Footer'
 import Grain from './components/Grain'
 import Hero from './components/Hero'
 import Nav from './components/Nav'
+import Services from './components/Services'
+import Works from './components/Works'
 
 export default function App() {
   return (
@@ -15,7 +21,13 @@ export default function App() {
       <Nav />
       <main id="contenido">
         <Hero />
+        <Services />
+        <Works />
+        <About />
+        <Closing />
       </main>
+      <Footer />
+      <FloatingWhatsApp />
       <Grain />
     </MotionConfig>
   )
