@@ -59,7 +59,7 @@ export default function Footer() {
         <div className="mt-16 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-mute sm:flex-row sm:justify-between">
           <p>© {year} QuadroFilms · Javier Vrana</p>
           <p>
-            Sitio por{' '}
+            Diseño y desarrollo web por{' '}
             <a href="https://genlab.com.ar" target="_blank" rel="noopener noreferrer" className="hover:text-cream">
               GenLab
             </a>

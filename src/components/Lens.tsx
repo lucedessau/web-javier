@@ -48,13 +48,15 @@ const MAX_BLUR = 4 // px
 const openness = (r: number) => phase(r, OPEN_FROM, OPEN_TO)
 
 // Recorridos máximos de cada pieza, en % del lienzo del isotipo
-const BLADE_TRAVEL = 8 * ISO_UNIT
+const BLADE_TRAVEL = 16 * ISO_UNIT
 const BLADE_TWIST = 14 // grados: el iris gira levemente al abrirse
 const RING_GROWTH = 0.07
 const TAIL_TRAVEL = 6 * ISO_UNIT
 const ISO_GROWTH = 0.08 // el isotipo entero se agranda mientras se abre
 const ASPECT = ISO.width / ISO.height // traduce % de ancho a % de alto
 const ORIGIN = `${ISO.originX}% ${ISO.originY}%`
+// borde interior del aro, apenas agrandado para que el corte quede tapado por el aro
+const IRIS_CLIP = `ellipse(${(ISO_IRIS.width * 0.51).toFixed(3)}% ${(ISO_IRIS.height * 0.51).toFixed(3)}% at ${ORIGIN})`
 
 /**
  * Zona de agarre en pantallas táctiles: solo el aro (anillo entre el 31% y el 50% del radio).
@@ -275,9 +277,12 @@ export default function Lens() {
               opacity: open,
             }}
           />
-          {ISO_BLADES.map((b) => (
-            <Blade key={b.src} src={b.src} dx={b.dx} dy={b.dy} open={open} />
-          ))}
+          {/* las aletas solo se ven dentro del aro: al retraerse se esconden bajo el borde, como un diafragma */}
+          <div className="absolute inset-0" style={{ clipPath: IRIS_CLIP }}>
+            {ISO_BLADES.map((b) => (
+              <Blade key={b.src} src={b.src} dx={b.dx} dy={b.dy} open={open} />
+            ))}
+          </div>
           <motion.img
             src="/brand/iso/ring.webp"
             alt=""
