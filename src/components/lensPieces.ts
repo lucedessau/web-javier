@@ -1,5 +1,11 @@
 // Generado desde el logo de QuadroFilms (scripts de recorte). Coordenadas en % del lienzo.
-export const ISO = { width: 512, height: 585, originX: 49.95, originY: 43.7 }
+export const ISO = { width: 581, height: 654, originX: 49.953, originY: 44.371 }
+/** Caja del isotipo dentro del lente (% del lente), centrada en el centro del aro. */
+export const ISO_BOX = { left: 23.909, top: 23.909, width: 52.231, height: 58.802 }
+/** Disco interior (donde aparece la luz), en % del lienzo. */
+export const ISO_IRIS = { width: 67.661, height: 60.099 }
+/** Convierte recorridos pensados sobre el lienzo sin margen al lienzo con margen. */
+export const ISO_UNIT = 0.8807
 export const ISO_TAIL = { src: '/brand/iso/tail.webp', dx: 0.538, dy: 0.843 }
 export const ISO_BLADES = [
   {

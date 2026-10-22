@@ -35,6 +35,12 @@
     text-rendering: optimizeLegibility;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--color-accent) 45%, transparent);
     color: #fff;
@@ -46,10 +52,47 @@
   }
 }
 
+/* Escala tipográfica compartida por todas las secciones */
+@utility page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 72rem;
+  padding-inline: 1.25rem;
+  @media (min-width: 40rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility text-section {
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 4.8vw, 4.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-weight: 340;
+  font-variation-settings: 'opsz' 144;
+  text-wrap: balance;
+}
+
+@utility text-lede {
+  font-size: clamp(1.05rem, 1.35vw, 1.2rem);
+  line-height: 1.65;
+  color: var(--color-mute);
+}
+
 /* Grano de película: fijo y sin eventos, para no repintar al scrollear */
 .grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: 0.045;
+}
+
+/* Mosaicos del domo 3D (tamaño y radio los define la galería según el ancho) */
+.dome-tile {
+  width: var(--tw);
+  height: var(--th);
+  margin-left: calc(var(--tw) / -2);
+  margin-top: calc(var(--th) / -2);
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
 /* La luz que entra por el lente */
